@@ -4,8 +4,10 @@ import { format, isSameDay, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
-import { Gift, Cake, Building2, Star, Bell } from "lucide-react";
-import { mockPeople, mockOrganizations, mockHolidays } from "@/data/mockData";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Gift, Cake, Building2, Star, Bell, Mail, Printer, Users } from "lucide-react";
+import { mockPeople, mockOrganizations, mockHolidays, mockCurators } from "@/data/mockData";
 
 export default function HomePage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -35,9 +37,80 @@ export default function HomePage() {
     return o ? o.name : "Неизвестно";
   };
 
-  const handleCongratulate = (holidayId: string) => {
+  const getCuratorNames = (curatorIds?: string[]) => {
+    if (!curatorIds || curatorIds.length === 0) return [];
+    return curatorIds.map((id) => mockCurators.find((c) => c.id === id)).filter(Boolean);
+  };
+
+  const handleElectronic = (holidayId: string) => {
     navigate(`/editor/${holidayId}`);
   };
+
+  const handlePrint = (holidayId: string) => {
+    navigate(`/editor/${holidayId}`);
+  };
+
+  const renderCurators = (curatorIds?: string[]) => {
+    const curators = getCuratorNames(curatorIds);
+    if (curators.length === 0) return null;
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1 mt-1">
+              <Users className="w-3 h-3 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground">
+                {curators.length} {curators.length === 1 ? "куратор" : "куратора"}
+              </span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">
+            {curators.map((c) => (
+              <div key={c!.id}>{c!.name} ({c!.email})</div>
+            ))}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
+  const renderHolidayCard = (h: typeof mockHolidays[0], icon: React.ReactNode, label: string, iconBgClass: string) => (
+    <div
+      key={h.id}
+      className="flex items-center justify-between p-3 rounded-md border bg-background hover:bg-muted/50 transition-colors"
+    >
+      <div className="flex items-center gap-3">
+        <div className={`w-9 h-9 rounded-full flex items-center justify-center ${iconBgClass}`}>
+          {icon}
+        </div>
+        <div>
+          <div className="font-medium text-sm">{label}</div>
+          <div className="text-xs text-muted-foreground">{h.description}</div>
+          {renderCurators(h.curatorIds)}
+        </div>
+      </div>
+      <div className="flex gap-1.5">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleElectronic(h.id)}
+          className="gap-1.5 text-xs"
+        >
+          <Mail className="w-3.5 h-3.5" />
+          Электронно
+        </Button>
+        <Button
+          variant="success"
+          size="sm"
+          onClick={() => handlePrint(h.id)}
+          className="gap-1.5 text-xs"
+        >
+          <Printer className="w-3.5 h-3.5" />
+          Печатно
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <div>
@@ -104,33 +177,14 @@ export default function HomePage() {
                   Дни рождения
                 </div>
                 <div className="space-y-2">
-                  {birthdays.map((h) => (
-                    <div
-                      key={h.id}
-                      className="flex items-center justify-between p-3 rounded-md border bg-background hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Cake className="w-4 h-4 text-primary" />
-                        </div>
-                        <div>
-                          <div className="font-medium text-sm">
-                            {h.personId ? getPersonName(h.personId) : "—"}
-                          </div>
-                          <div className="text-xs text-muted-foreground">{h.description}</div>
-                        </div>
-                      </div>
-                      <Button
-                        variant="success"
-                        size="sm"
-                        onClick={() => handleCongratulate(h.id)}
-                        className="gap-1.5"
-                      >
-                        <Gift className="w-3.5 h-3.5" />
-                        Поздравить
-                      </Button>
-                    </div>
-                  ))}
+                  {birthdays.map((h) =>
+                    renderHolidayCard(
+                      h,
+                      <Cake className="w-4 h-4 text-primary" />,
+                      h.personId ? getPersonName(h.personId) : "—",
+                      "bg-primary/10"
+                    )
+                  )}
                 </div>
               </div>
             )}
@@ -143,33 +197,14 @@ export default function HomePage() {
                   Дни основания
                 </div>
                 <div className="space-y-2">
-                  {foundations.map((h) => (
-                    <div
-                      key={h.id}
-                      className="flex items-center justify-between p-3 rounded-md border bg-background hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center">
-                          <Building2 className="w-4 h-4 text-accent" />
-                        </div>
-                        <div>
-                          <div className="font-medium text-sm">
-                            {h.organizationId ? getOrgName(h.organizationId) : "—"}
-                          </div>
-                          <div className="text-xs text-muted-foreground">{h.description}</div>
-                        </div>
-                      </div>
-                      <Button
-                        variant="success"
-                        size="sm"
-                        onClick={() => handleCongratulate(h.id)}
-                        className="gap-1.5"
-                      >
-                        <Gift className="w-3.5 h-3.5" />
-                        Поздравить
-                      </Button>
-                    </div>
-                  ))}
+                  {foundations.map((h) =>
+                    renderHolidayCard(
+                      h,
+                      <Building2 className="w-4 h-4 text-accent" />,
+                      h.organizationId ? getOrgName(h.organizationId) : "—",
+                      "bg-accent/10"
+                    )
+                  )}
                 </div>
               </div>
             )}
@@ -182,33 +217,14 @@ export default function HomePage() {
                   Прочие праздники
                 </div>
                 <div className="space-y-2">
-                  {otherHolidays.map((h) => (
-                    <div
-                      key={h.id}
-                      className="flex items-center justify-between p-3 rounded-md border bg-background hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-warning/10 flex items-center justify-center">
-                          <Star className="w-4 h-4 text-warning" />
-                        </div>
-                        <div>
-                          <div className="font-medium text-sm">{h.description}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {format(parseISO(h.date), "d MMMM", { locale: ru })}
-                          </div>
-                        </div>
-                      </div>
-                      <Button
-                        variant="success"
-                        size="sm"
-                        onClick={() => handleCongratulate(h.id)}
-                        className="gap-1.5"
-                      >
-                        <Gift className="w-3.5 h-3.5" />
-                        Поздравить
-                      </Button>
-                    </div>
-                  ))}
+                  {otherHolidays.map((h) =>
+                    renderHolidayCard(
+                      h,
+                      <Star className="w-4 h-4 text-warning" />,
+                      h.description,
+                      "bg-warning/10"
+                    )
+                  )}
                 </div>
               </div>
             )}

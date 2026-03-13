@@ -5,9 +5,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Plus, Search, Users } from "lucide-react";
-import { mockHolidays, mockPeople, mockOrganizations, type Holiday } from "@/data/mockData";
+import { mockHolidays, mockPeople, mockOrganizations, mockCurators, type Holiday } from "@/data/mockData";
 
 const months = [
   "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
@@ -18,6 +20,8 @@ export default function HolidaysPage() {
   const [holidays, setHolidays] = useState<Holiday[]>(mockHolidays);
   const [filtered, setFiltered] = useState<Holiday[]>(mockHolidays);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [curatorDialogOpen, setCuratorDialogOpen] = useState(false);
+  const [selectedHoliday, setSelectedHoliday] = useState<Holiday | null>(null);
 
   const [filterName, setFilterName] = useState("");
   const [filterMonth, setFilterMonth] = useState("");
@@ -72,6 +76,31 @@ export default function HolidaysPage() {
     }
   };
 
+  const getCuratorsForHoliday = (h: Holiday) => {
+    if (!h.curatorIds || h.curatorIds.length === 0) return [];
+    return h.curatorIds.map((id) => mockCurators.find((c) => c.id === id)).filter(Boolean);
+  };
+
+  const openCuratorDialog = (h: Holiday) => {
+    setSelectedHoliday(h);
+    setCuratorDialogOpen(true);
+  };
+
+  const toggleCurator = (curatorId: string) => {
+    if (!selectedHoliday) return;
+    const current = selectedHoliday.curatorIds || [];
+    const updated = current.includes(curatorId)
+      ? current.filter((id) => id !== curatorId)
+      : [...current, curatorId];
+    
+    const updatedHoliday = { ...selectedHoliday, curatorIds: updated };
+    setSelectedHoliday(updatedHoliday);
+    
+    const updatedHolidays = holidays.map((h) => h.id === selectedHoliday.id ? updatedHoliday : h);
+    setHolidays(updatedHolidays);
+    setFiltered(updatedHolidays);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -115,32 +144,64 @@ export default function HolidaysPage() {
               <TableHead>Описание</TableHead>
               <TableHead>Тип</TableHead>
               <TableHead>Объект</TableHead>
-              <TableHead className="w-[100px]">Кураторы</TableHead>
+              <TableHead>Кураторы</TableHead>
+              <TableHead className="w-[100px]">Действия</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((h) => (
-              <TableRow key={h.id} className="hover:bg-muted/50">
-                <TableCell>{h.date}</TableCell>
-                <TableCell className="font-medium">{h.description}</TableCell>
-                <TableCell>{typeLabel(h.type)}</TableCell>
-                <TableCell>{getEntityName(h)}</TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="icon" title="Кураторы">
-                    <Users className="w-4 h-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            {filtered.map((h) => {
+              const curators = getCuratorsForHoliday(h);
+              return (
+                <TableRow key={h.id} className="hover:bg-muted/50">
+                  <TableCell>{h.date}</TableCell>
+                  <TableCell className="font-medium">{h.description}</TableCell>
+                  <TableCell>{typeLabel(h.type)}</TableCell>
+                  <TableCell>{getEntityName(h)}</TableCell>
+                  <TableCell>
+                    {curators.length > 0 ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-1.5">
+                              <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                              <div className="flex gap-1 flex-wrap">
+                                {curators.map((c) => (
+                                  <Badge key={c!.id} variant="secondary" className="text-[10px] px-1.5 py-0">
+                                    {c!.name.split(" ")[0]}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent className="text-xs">
+                            {curators.map((c) => (
+                              <div key={c!.id}>{c!.name} — {c!.email}</div>
+                            ))}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="icon" title="Кураторы" onClick={() => openCuratorDialog(h)}>
+                      <Users className="w-4 h-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Нет результатов</TableCell>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Нет результатов</TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
 
+      {/* Add Holiday Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -178,6 +239,47 @@ export default function HolidaysPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Отмена</Button>
             <Button onClick={handleAdd}>Создать</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Curator Management Dialog */}
+      <Dialog open={curatorDialogOpen} onOpenChange={setCuratorDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Кураторы праздника</DialogTitle>
+          </DialogHeader>
+          {selectedHoliday && (
+            <div className="space-y-4 py-4">
+              <div className="text-sm text-muted-foreground">
+                {selectedHoliday.description} — {selectedHoliday.date}
+              </div>
+              <div className="space-y-2">
+                {mockCurators.map((c) => {
+                  const isAssigned = selectedHoliday.curatorIds?.includes(c.id) || false;
+                  return (
+                    <div
+                      key={c.id}
+                      className={`flex items-center justify-between p-3 rounded-md border cursor-pointer transition-colors ${
+                        isAssigned ? "bg-primary/5 border-primary/30" : "bg-background hover:bg-muted/50"
+                      }`}
+                      onClick={() => toggleCurator(c.id)}
+                    >
+                      <div>
+                        <div className="text-sm font-medium">{c.name}</div>
+                        <div className="text-xs text-muted-foreground">{c.email}</div>
+                      </div>
+                      {isAssigned && (
+                        <Badge variant="default" className="text-[10px]">Назначен</Badge>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setCuratorDialogOpen(false)}>Закрыть</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
